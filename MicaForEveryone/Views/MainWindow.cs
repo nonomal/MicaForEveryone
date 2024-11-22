@@ -5,15 +5,18 @@ using Windows.ApplicationModel.Resources;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 
-using MicaForEveryone.Interfaces;
+using MicaForEveryone.Core.Ui.Views;
+using MicaForEveryone.Core.Ui.ViewModels;
 using MicaForEveryone.UI;
 using MicaForEveryone.Win32;
 using MicaForEveryone.Win32.PInvoke;
 using MicaForEveryone.Xaml;
+using MicaForEveryone.Interfaces;
+using MicaForEveryone.Core.Interfaces;
 
 namespace MicaForEveryone.Views
 {
-    internal class MainWindow : XamlWindow
+    internal class MainWindow : XamlWindow, ITrayIconView
     {
         public const string OpenSettingsMessage = "MicaForEveryone_OpenSettings";
 
@@ -68,9 +71,9 @@ namespace MicaForEveryone.Views
         }
 
         public ITrayIconViewModel ViewModel { get; } =
-            Program.CurrentApp.Container.GetService<ITrayIconViewModel>();
+            Program.Container.GetService<ITrayIconViewModel>();
 
-        public override async void Activate()
+        public override void Activate()
         {
             base.Activate();
 
@@ -86,7 +89,7 @@ namespace MicaForEveryone.Views
 
             try
             {
-                await ViewModel.InitializeAsync(this);
+                ViewModel.Attach(this);
             }
 #if DEBUG
             catch
@@ -96,13 +99,13 @@ namespace MicaForEveryone.Views
 #else
             catch (Exception ex)
             {
-                Program.CurrentApp.Dispatcher.Enqueue(() =>
+                Program.Container.GetRequiredService<IViewService>().DispatcherEnqueue(() =>
                 {
                     var title = ResourceLoader.GetForCurrentView().GetString("AppInitializationError/Title");
-                    var dialogService = Program.CurrentApp.Container.GetService<IDialogService>();
+                    var dialogService = Program.Container.GetService<IDialogService>();
                     dialogService.ShowErrorDialog(null, title, ex, 500, 320).Destroy += (sender, args) =>
                     {
-                        Program.CurrentApp.Exit();
+                        Program.Container.GetRequiredService<IAppLifeTimeService>().ShutdownViewService();
                     };
                 });
             }
